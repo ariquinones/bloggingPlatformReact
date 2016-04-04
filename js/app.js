@@ -35,11 +35,152 @@ import fetch from "isomorphic-fetch"
 
 import DOM from 'react-dom'
 import React, {Component} from 'react'
+import Backbone from 'bbfire'
+import Firebase from 'firebase'
+import LoginView from './loginView'
+import {Header,AllPostsView, DashboardView, MyPostsView} from "./dashboardView"
 
 function app() {
     // start app
     // new Router()
-    DOM.render(<p>test 2</p>, document.querySelector('.container'))
-}
+    var AddPostView = React.createClass({
+	blogTitle: '',
+	blogContent: '',
+	_handleBlogTitle: function(e) {
+		this.blogTitle = e.target.value
+	},
+	_handleBlogContent: function(e) {
+		this.blogContent = e.target.value
+	},
+	_saveBlog: function() {
+		var userBlogModel = new BlogModel()
+		userBlogModel.attributes.blogTitle = this.blogTitle
+		userBlogModel.attributes.blogContent = this.blogContent
+		console.log(userBlogModel)
+		this.state.newAllColl.add(userBlogModel.attributes)
+		this.state.newUserColl.add(userBlogModel.attributes)
+		location.hash = "myPosts"
+	},
+	render: function() {
+		return (
+				<div className="addPostView">
+					<Header email={this.props.email}/>
+					<textarea placeholder="title" onKeyDown={this._handleBlogTitle} className="blogTitleInput"/>
+					<textarea placeholder="content" onKeyDown={this._handleBlogContent} className="blogContentInput"/>
+					<button className="addBlog" onClick={this._saveBlog}>Save blog</button>
+				</div>
+			)
+	},
+	getInitialState: function() {
+		return {
+			newUserColl: this.props.newUserColl,
+			newAllColl: this.props.newAllColl
+		}
+	}
+	})
 
+
+    var BlogModel = Backbone.Model.extend({
+    	defaults: {
+    		blogTitle: null,
+    		blogContent: null
+    	}
+    })
+    var UserCollection = Backbone.Firebase.Collection.extend({
+      url: "http://blogginglarge.firebaseio.com/users",
+      initialize: function(uid) {
+        this.url = `http://blogginglarge.firebaseio.com/users/${uid}/blogs`
+      },
+      model: BlogModel,
+      autoSync: true
+    })
+    var AllUsersCollection = Backbone.Firebase.Collection.extend({
+    	url: "http://blogginglarge.firebaseio.com",
+    	model: BlogModel,
+    	autoSync: true,
+    	parse: function(rawData) {
+			return rawData.results
+		}
+    })
+
+ 	var BlogRouter = Backbone.Router.extend({
+ 		routes: {
+ 			"myPosts": "handleMyPosts",
+ 			"allPosts": "handleAllPosts",
+ 			"addPost": "handleAddPost",
+ 			"*default": "handleLogin"
+ 		},
+ 		initialize: function() {
+ 			this.ref = new Firebase("https://blogginglarge.firebaseio.com");
+ 			var auth = this.ref.getAuth()
+ 			if (!auth) location.hash = "login"
+        	console.log(auth)
+ 			Backbone.history.start()
+ 		},
+ 		handleLogin: function() {
+ 			location.hash="login"
+ 			DOM.render(<LoginView _signupUser={this._signupUser.bind(this)} _loginUser={this._loginUser.bind(this)} />, document.querySelector('.container'))
+ 		},
+ 		handleAllPosts: function() {
+ 			var allBlogsCollection = new AllUsersCollection()
+ 			allBlogsCollection.fetch()
+ 			DOM.render(<AllPostsView newAllColl={allBlogsCollection}  email={this.ref.getAuth().password.email} />, document.querySelector('.container'))
+ 		},
+ 		handleAddPost: function() {
+ 			var uColl = new UserCollection(this.ref.getAuth().uid)
+ 			DOM.render(<AddPostView newAllColl={new AllUsersCollection} newUserColl={uColl} email={this.ref.getAuth().password.email} />, document.querySelector('.container'))
+ 		},
+ 		handleMyPosts: function() {
+ 			var uColl = new UserCollection(this.ref.getAuth().uid) 
+ 			uColl.fetch() 
+ 			DOM.render(<MyPostsView uColl={uColl} email={this.ref.getAuth().password.email} />, document.querySelector('.container'))
+ 		},
+ 		_logoutUser: function() {
+	        this.ref.unauth()
+    	    location.hash = "login"
+ 		},
+ 		_signupUser: function(userEmail,userPassword) {
+ 			var ref = this.ref 
+ 			var boundLoginUser = this._loginUser.bind(this)
+ 			var boundSignUpUser = this._signupUser.bind(this)
+ 			var storeUser = function(userData) {
+            ref.child('users').child(userData.uid).set({email:userEmail})
+          	}
+			ref.createUser({
+			  email    : userEmail,
+			  password : userPassword
+			}, function(error, userData) {
+			  if (error) {
+			    console.log("Error creating user:", error);
+			    DOM.render(<LoginView signupError={error} _signupUser={boundSignUpUser} _loginUser={boundLoginUser}  />, document.querySelector('.container'))
+			  } else {
+			    console.log("Successfully created user account with uid:", userData.uid);
+			    boundLoginUser(userEmail, userPassword)
+			    storeUser(userData)
+			  }
+			});
+ 		},
+ 		_loginUser: function(userEmail,userPassword) {
+ 			var ref = this.ref
+ 			var boundLogoutUser = this._logoutUser.bind(this)
+ 			var boundLoginUser = this._loginUser.bind(this)
+ 			var boundSignUpUser = this._signupUser.bind(this)
+			ref.authWithPassword({
+			  email    : userEmail,
+			  password : userPassword
+			}, function(error, authData) {
+			  if (error) {
+			    console.log("Login Failed!", error);
+			    DOM.render(<LoginView loginError={error} _signupUser={boundSignUpUser} _loginUser={boundLoginUser} />, document.querySelector('.container'))
+			  } else {
+			    console.log("Authenticated successfully with payload:", authData);
+			    DOM.render(<DashboardView logout={boundLogoutUser} email={ref.getAuth().password.email} />,document.querySelector('.container'))
+			  }
+			});
+ 		}
+ 	})
+ 	var blogRouter = new BlogRouter()
+}
+// export {BlogModel, UserCollection, AllUsersCollection}
 app()
+
