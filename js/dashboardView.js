@@ -17,12 +17,11 @@ var Header = React.createClass ({
 		document.querySelector('body').style.background = "rgba(249,249,249,1)"
 		return (
 				<div className="header">
-					<img className="logo" src="./Images/largeLogo.png"/>
 					<h1>Large</h1>
 					<div className="toggleViews">
 						<a href="#addPost">Add Post</a>
-						<a href="#allPosts">View All Posts</a>
-						<a href="#myPosts">View My Posts</a>
+						<a href="#allPosts">All Posts</a>
+						<a href="#myPosts">My Posts</a>
 						<a href="#logout">Logout</a>
 					</div>
 					<p>Hello, {this.props.email}</p>

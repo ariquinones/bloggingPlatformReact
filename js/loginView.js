@@ -23,7 +23,7 @@ var LoginView = React.createClass({
 		if (this.props.signupError) signupErrorMsg = "Could not verify your sign up. Your email address may already be in use."
 		return (
 				<div className="loginView">
-				<img className="logo" src="./Images/largeLogo.svg"/>
+				
 					<div className="loginContainer">
 						<h1>Welcome to Large</h1>
 						<p> {signupErrorMsg}</p>
